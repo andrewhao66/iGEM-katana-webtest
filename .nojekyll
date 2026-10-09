@@ -1,0 +1,4 @@
+# GitHub Pages runs Jekyll by default, which SKIPS files and directories whose
+# names begin with an underscore. Nothing here starts with one today, but the
+# engine vendors _vendor/ and a future page file could, and a silently missing
+# module would read as a broken page rather than a missing file. Disable it.

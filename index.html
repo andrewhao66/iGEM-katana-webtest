@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>katana-kagami — check a sequence</title>
+<!--
+  This page runs Katana's own audit modules, unmodified, in your browser.
+
+  Not a reimplementation. index.js fetches core/ and the audit half of kagami/ as plain
+  .py files and runs them under Pyodide, because two implementations of one check drift
+  apart and that drift is the failure this whole project exists to prevent. The list of
+  modules it loads is pinned by tests/test_web_importable.py, which imports each one
+  with subprocess blocked -- the condition a browser actually imposes.
+
+  Nothing is uploaded. Pyodide is CPython compiled to WebAssembly, running on your
+  machine; the sequence you drop here never leaves it. That is the same property
+  blast_offtarget.py claims for the command line, kept rather than traded away.
+-->
+<style>
+:root{
+  --bg:#eef1f4; --surface:#fff; --surface-2:#f7f9fb; --ink:#161b24; --muted:#586470;
+  --faint:#8892a0; --border:#dce1e8; --accent:#0e6e78; --accent-ink:#0a545c;
+  --warn:#a9761a; --pass:#2c7d5a; --fail:#c23945;
+  --warn-soft:#f3e7cf; --pass-soft:#dbeee5; --fail-soft:#f4dcde;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme=light]){
+    --bg:#0e131a; --surface:#161d27; --surface-2:#1a2330; --ink:#e9edf2; --muted:#9aa5b2;
+    --faint:#6a7583; --border:#26313f; --accent:#40b7c2; --accent-ink:#7fd3da;
+    --warn:#d7a44e; --pass:#54c48d; --fail:#e56d76;
+    --warn-soft:#3a2e15; --pass-soft:#12352a; --fail-soft:#3c1e22;
+  }
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);margin:0;line-height:1.5;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:28px 16px 64px}
+.eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--accent-ink);margin-bottom:8px}
+h1{font-size:26px;font-weight:800;letter-spacing:-.01em;margin:0}
+.sub{font-family:ui-monospace,Menlo,monospace;color:var(--muted);font-size:13px;margin-top:6px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:20px;margin-top:20px}
+#drop{border:2px dashed var(--border);border-radius:12px;padding:34px 18px;text-align:center;
+  background:var(--surface-2);cursor:pointer;transition:border-color .15s,background .15s}
+#drop.over{border-color:var(--accent);background:var(--pass-soft)}
+#drop h2{margin:0 0 6px;font-size:17px}
+#drop p{margin:0;color:var(--muted);font-size:14px}
+#file{display:none}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+label.opt{font-size:14px;color:var(--muted);display:flex;gap:6px;align-items:center}
+select{font:inherit;padding:5px 8px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface);color:var(--ink)}
+.vpill{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:600;
+  padding:6px 13px;border-radius:999px;display:inline-block}
+.vpill.ok{background:var(--pass-soft);color:var(--pass)}
+.vpill.cond{background:var(--warn-soft);color:var(--warn)}
+.vpill.bad{background:var(--fail-soft);color:var(--fail)}
+.rrow{display:grid;grid-template-columns:20px 1fr auto;gap:12px;align-items:baseline;
+  padding:12px 0;border-top:1px solid var(--border);font-size:14px}
+.rrow .st{font-family:ui-monospace,Menlo,monospace;font-weight:700;text-align:center}
+.st.p{color:var(--pass)}.st.w{color:var(--warn)}.st.f{color:var(--fail)}
+.st.n{color:var(--muted)}.st.s{color:var(--faint)}
+.what b{font-weight:600}
+.what .note{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.what .fix{display:block;color:var(--accent-ink);font-size:12.5px;margin-top:2px}
+.loc{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--faint);
+  white-space:nowrap}
+table.blocks{width:100%;border-collapse:collapse;font-size:13.5px}
+table.blocks th{text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;
+  border-bottom:1px solid var(--border);font-size:12px;text-transform:uppercase;
+  letter-spacing:.06em}
+table.blocks td{padding:7px 8px;border-bottom:1px solid var(--border);
+  font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+#status{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--muted);
+  margin-top:14px;white-space:pre-wrap}
+.bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+h2.sec{font-size:15px;margin:0 0 6px}
+footer{margin-top:26px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;
+  color:var(--faint);line-height:1.7}
+.hide{display:none}
+a{color:var(--accent-ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">◤ katana-kagami · check a sequence</div>
+  <h1>Is this sequence what its labels say?</h1>
+  <div class="sub">Runs in your browser. Nothing is uploaded.</div>
+
+  <div class="card">
+    <div id="drop" tabindex="0" role="button"
+         aria-label="Choose or drop a sequence file">
+      <h2>Drop a file here</h2>
+      <p>GenBank, FASTA, a spreadsheet, or a pasted sequence — .gb .fasta .csv .txt .xlsx<br>
+         or click to choose one</p>
+    </div>
+    <input type="file" id="file"
+           accept=".gb,.gbk,.genbank,.fasta,.fa,.fna,.seq,.txt,.csv,.tsv,.xlsx">
+
+    <div class="row">
+      <label class="opt">Host
+        <select id="host">
+          <option value="">none — skip the off-target check</option>
+          <option value="mg1655-pos">E. coli K-12 MG1655 (recA+, the chassis)</option>
+          <option value="mg1655-neg">E. coli cloning strain — DH5α / Top10 (recA−)</option>
+          <option value="local">another host — a genome file on this computer…</option>
+        </select>
+      </label>
+      <label class="opt">Assembly
+        <select id="assembly">
+          <option value="">synthesis / none</option>
+          <option value="BsaI">Golden Gate — BsaI</option>
+          <option value="BsmBI">Golden Gate / MoClo — BsmBI</option>
+          <option value="SapI">Golden Gate — SapI</option>
+          <option value="BioBrick">BioBrick / RFC[10]</option>
+        </select>
+      </label>
+      <label class="opt">Vendor
+        <select id="vendor">
+          <option value="">no size cap</option>
+          <option value="Twist">Twist — 5000 bp</option>
+          <option value="IDT">IDT — 3000 bp</option>
+          <option value="GenScript">GenScript — 10000 bp</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Only the bundled MG1655 ships with the page. Any other chassis is a file the
+         person already has: `python3 get_genome.py` in the bundle fetches 23 of them,
+         including E. coli Nissle 1917. The file is read into the in-browser filesystem
+         and never sent anywhere, which is the same promise the sequence gets. -->
+    <div class="row hide" id="genomerow">
+      <label class="opt">Genome file
+        <input type="file" id="genomefile" accept=".fna,.fa,.fasta,.gb,.gbk,.genbank,.seq,.txt">
+      </label>
+      <div class="sub" id="genomenote">FASTA or GenBank. Fetch one for your chassis with
+        <code>python3 get_genome.py</code> in the Katana bundle — 23 hosts, including
+        E. coli Nissle 1917. recA status is unknown for a file, so the check assumes
+        recA+, the worse case.</div>
+    </div>
+
+    <div id="status">Loading the engine…</div>
+    <div class="bar"><i id="bar"></i></div>
+  </div>
+
+  <div class="card hide" id="result">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;
+                flex-wrap:wrap;margin-bottom:12px">
+      <h2 class="sec" id="rname">Result</h2>
+      <span class="vpill" id="pill"></span>
+    </div>
+    <div id="blocks"></div>
+    <h2 class="sec" style="margin-top:20px">Audit</h2>
+    <div id="findings"></div>
+  </div>
+
+  <footer>
+    This page runs Katana's own audit modules, unmodified, through Pyodide — CPython
+    compiled to WebAssembly. It is not a second implementation: two implementations of
+    one check drift apart, and that drift is the failure this project exists to prevent.<br>
+    Nothing is uploaded. The sequence you drop here never leaves your machine.<br>
+    katana-kagami reports; it does not seal. To rebuild a construct cleanly you need
+    Katana's command-line tool, because a parts library has to live in git.
+  </footer>
+</div>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script src="index.js"></script>
+</body>
+</html>
